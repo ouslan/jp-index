@@ -1,0 +1,66 @@
+---
+title: "Developing consummer index"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+# Developing a consumer price index
+
+```{python}
+import requests
+from tqdm import tqdm
+```
+
+
+
+
+```{python}
+def download_file(file_path: str):
+    # Define the cookies and headers for the request
+    cookies = {
+           }
+
+    headers = {
+    }
+
+    data = {
+        '__EVENTTARGET': '',
+        '__EVENTARGUMENT': '',
+        '__VIEWSTATE': '/wEPDwUKLTcxODY5NDM5NGQYAQUeX19Db250cm9sc1JlcXVpcmVQb3N0QmFja0tleV9fFgQFEmN0bDAwJEltYWdlQnV0dG9uMgUSY3RsMDAkSW1hZ2VCdXR0b243BRJjdGwwMCRJbWFnZUJ1dHRvbjYFE2N0bDAwJEltYWdlQnV0dG9uMjmbsvgxbeWK6OTKG+ORpFm3OEWkw9qqUvxB+x/6e4VYHA==',
+        '__VIEWSTATEGENERATOR': 'C7F80305',
+        '__PREVIOUSPAGE': 'GwKz4yZIj7Uo4a3KIzGOhMCI77vcHU60FinRHRx3g5l-ETFOoBNr2no6Fz0HhRbD6EHh7WoeeB373TP67fTBUnA29kstVUAarj4oAEiJ6fSKHGteKw7kiIEmcASoaXYmTyut_TAQm5UxmEzDwNnRMA2',
+        '__EVENTVALIDATION': '/wEdAAlUqk7OF8+IyJVVhTuf5Y1+K54MsQ9Z5Tipa4C3CU9lIy6KqsTtzWiK229TcIgvoTmJ5D8KsXArXsSdeMqOt6pk+d3fBy3LDDz0lsNt4u+CuDIENRTx3TqpeEC0BFNcbx18XLv2PDpbcvrQF1sPng9RHC+hNwNMKsAjTYpq3ZLON4FBZYDVNXrnB/9WmjDFKj6ji8qalfcp0F7IzcRWfkdgwm54EtTOkeRtMO19pSuuIg==',
+        'ctl00$MainContent$Button1': 'Descargar',
+    }
+
+    # Perform the POST request to download the file
+    response = requests.post(
+        'https://www.mercadolaboral.pr.gov/Tablas_Estadisticas/Otras_Tablas/T_Indice_Precio.aspx',
+        data=data,
+        stream=True  # Stream the response to handle large files
+    )
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Get the total file size from the headers
+        total_size = int(response.headers.get('content-length', 0))
+        # Open the file for writing in binary mode
+        with open(file_path, 'wb') as file:
+            # Use tqdm to show the download progress
+            for chunk in tqdm(response.iter_content(chunk_size=8192), 
+                              total=total_size // 8192, 
+                              unit='KB', 
+                              desc='Downloading'):
+                if chunk:  # Filter out keep-alive new chunks
+                    file.write(chunk)
+    else:
+        print(f"Failed to download file. Status code: {response.status_code}")
+```
+
+```{python}
+download_file('CPI.xls')
+print('Download complete')
+```
+```
