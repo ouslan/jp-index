@@ -26,7 +26,7 @@ class DataPull:
             if self.debug:
                 print("\033[0;32mSUCCESS: \033[0m" + f"Downloaded {filename}")
 
-    def download_file(self, file_path: str):
+    def pull_consumer(self, file_path: str):
         data = {
             '__EVENTTARGET': '',
             '__EVENTARGUMENT': '',
