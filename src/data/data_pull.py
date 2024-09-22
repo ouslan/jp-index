@@ -26,6 +26,10 @@ class DataPull:
             if self.debug:
                 print("\033[0;32mSUCCESS: \033[0m" + f"Downloaded {filename}")
 
+    def pull_economic_indicators(self, file_path: str):
+        url = "https://jp.pr.gov/wp-content/uploads/2024/09/Indicadores_Economicos_9.13.2024.xlsx"
+        self.pull_file(url, file_path)
+
     def pull_consumer(self, file_path: str):
         data = {
             '__EVENTTARGET': '',

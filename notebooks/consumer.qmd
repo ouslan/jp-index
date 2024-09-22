@@ -20,6 +20,8 @@ from src.data.data_process import DataProcess
 
 ```{python}
 DataProcess().process_consumer("consumer.xls")
+pl.read_parquet('data/processed/consumer.parquet')
+
 ```
 
 
