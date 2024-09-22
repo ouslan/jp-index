@@ -45,5 +45,21 @@ class DataProcess(DataPull):
         df = df.with_columns(pl.all().exclude("date").cast(pl.Float64))
         df.write_parquet(f"{self.data_dir}/processed/{file_name.replace('.xls', '.parquet')}")
 
+    def process_sheet(self, file_path : str, sheet_id: int) -> pl.DataFrame:
+        df = pl.read_excel(file_path, sheet_id=sheet_id)
+        months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre", "Meses"]
+
+        df = df.filter(pl.nth(1).is_in(months)).drop(pl.nth(0)).head(13)
+        columns = df.head(1).with_columns(pl.all()).cast(pl.String).to_dicts().pop()
+        for item in columns:
+          if columns[item] == "Meses":
+            continue
+          elif columns[item] == None:
+            df = df.drop(item)
+          elif float(columns[item]) < 2000 or float(columns[item]) > 2100:
+            df = df.drop(item)
+        df = df.rename(df.head(1).with_columns(pl.nth(range(1, len(df.columns))).cast(pl.Int64)).cast(pl.String).to_dicts().pop()).tail(-1)
+        return df
+
 
 

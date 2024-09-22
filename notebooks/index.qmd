@@ -1,0 +1,47 @@
+---
+title: "Developing consummer index"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+# Developing a consumer price index
+
+```{python}
+import os 
+os.chdir('..')
+```
+
+```{python}
+import polars as pl
+import pandas as pd
+from src.data.data_process import DataProcess
+from src.data.data_pull import DataPull
+```
+
+```{python}
+months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre", "Meses"]
+```
+
+```{python}
+df = pl.read_excel("data/raw/economic_indicators.xlsx", sheet_id=19)
+# drop nulls
+df = df.filter(pl.nth(1).is_in(months)).drop(pl.nth(0)).head(13)
+tmp = df.head(1).with_columns(pl.all()).cast(pl.String).to_dicts().pop()
+for key in tmp:
+  if tmp[key] == "Meses":
+    continue
+  elif tmp[key] == None:
+    df = df.drop(key)
+  elif float(tmp[key]) < 2000 or float(tmp[key]) > 2100:
+    df = df.drop(key)
+df = df.rename(df.head(1).with_columns(pl.nth(range(1, len(df.columns))).cast(pl.Int64)).cast(pl.String).to_dicts().pop()).tail(-1)
+df
+```
+
+```{python}
+url = 'https://dataweb.usitc.gov/classification/commodity-description/NAIC/6'
+html = requests.get(url).content
+# Recoleccion de datos de cpi paa 2020-2023
+df_list = pd.read_html(html, match='table')
