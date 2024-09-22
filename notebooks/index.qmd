@@ -17,31 +17,96 @@ os.chdir('..')
 import polars as pl
 import pandas as pd
 from src.data.data_process import DataProcess
+import polars.selectors as cs
 from src.data.data_pull import DataPull
+from datetime import datetime
+```
+
+```{python}
+DataProcess().process_jp_index(file_name="economic_indicators.xlsx")
+#DataProcess().process_sheet(file_path="data/raw/economic_indicators.xlsx", sheet_id=3).sort(pl.col("date"))
 ```
 
 ```{python}
 months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre", "Meses"]
+DataPull().pull_economic_indicators(file_path="data/raw/economic_indicators.xlsx")
+print(datetime.now().year)
 ```
 
 ```{python}
-df = pl.read_excel("data/raw/economic_indicators.xlsx", sheet_id=19)
+df = pl.read_excel("data/raw/economic_indicators.xlsx", sheet_id=4)
+column2 = df.columns[1].replace(" ", "_").lower()
+print(column2)
 # drop nulls
-df = df.filter(pl.nth(1).is_in(months)).drop(pl.nth(0)).head(13)
+df = df.filter(pl.nth(1).is_in(months)).drop(cs.first()).head(13)
 tmp = df.head(1).with_columns(pl.all()).cast(pl.String).to_dicts().pop()
+print(len(tmp))
 for key in tmp:
   if tmp[key] == "Meses":
     continue
-  elif tmp[key] == None:
+  elif tmp[key] == None: 
     df = df.drop(key)
-  elif float(tmp[key]) < 2000 or float(tmp[key]) > 2100:
+  elif float(tmp[key]) < 2000 or float(tmp[key]) > datetime.now().year + 1:
     df = df.drop(key)
-df = df.rename(df.head(1).with_columns(pl.nth(range(1, len(df.columns))).cast(pl.Int64)).cast(pl.String).to_dicts().pop()).tail(-1)
-df
-```
 
-```{python}
-url = 'https://dataweb.usitc.gov/classification/commodity-description/NAIC/6'
-html = requests.get(url).content
-# Recoleccion de datos de cpi paa 2020-2023
-df_list = pd.read_html(html, match='table')
+if len(df.columns) > (datetime.now().year - 2001):
+  print(len(df.columns))
+  print(datetime.now().year - 1997)
+#   df = df.select(pl.nth(range(0, len(df.columns)//2)))
+
+df = df.rename(df.head(1).with_columns(pl.nth(range(1, len(df.columns))).cast(pl.Int64)).cast(pl.String).to_dicts().pop()).tail(-1)
+df = df.with_columns(pl.col("Meses").str.to_lowercase()).cast(pl.String)
+df
+
+empty_df = [
+            pl.Series("date", [], dtype=pl.Datetime),
+            pl.Series(column2, [], dtype=pl.Float64)
+        ]
+clean_df = pl.DataFrame(empty_df)
+
+for column in df.columns:
+            if column == "Meses":
+                continue
+            column_name = column2
+            # Create a temporary DataFrame
+            tmp = df
+            tmp = tmp.rename({column:column_name})
+            tmp = tmp.with_columns(
+            pl.when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "enero").then(1)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "febrero").then(2)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "marzo").then(3)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "abril").then(4)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "mayo").then(5)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "junio").then(6)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "julio").then(7)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "agosto").then(8)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "septiembre").then(9)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "octubre").then(10)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "noviembre").then(11)
+              .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "diciembre").then(12)
+              .alias("month")
+                )
+            tmp = tmp.with_columns(
+                pl.col(column_name).str.replace_all("$", "", literal=True).str.replace_all(",", "").str.strip_chars().alias(column_name)
+            )
+            tmp = tmp.with_columns(
+                pl.when(pl.col(column_name)  == "n/d").then(None)
+                .when(pl.col(column_name)  == "**").then(None)
+                .when(pl.col(column_name)  == "-").then(None)
+                .when(pl.col(column_name)  == "no disponible").then(None)
+                .otherwise(pl.col(column_name)).alias(column_name)
+            )
+            tmp = tmp.select(
+                            pl.col("month").cast(pl.Int64).alias("month"),
+                            pl.lit(int(column)).cast(pl.Int64).alias("year"),
+                            pl.col(column_name).cast(pl.Float64).alias(column_name)
+            )
+
+            tmp = tmp.with_columns((pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01").alias("date"))
+            tmp = tmp.select(pl.col("date").str.to_datetime("%Y-%m-%d").alias("date"),
+                             pl.col(column_name).alias(column_name))
+
+            # Append the temporary DataFrame to the list
+            clean_df = pl.concat([clean_df, tmp], how="vertical")
+clean_df
+```
