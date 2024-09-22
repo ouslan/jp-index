@@ -15,7 +15,9 @@ class DataProcess(DataPull):
             os.makedirs(f'{data_dir}/processed')
 
     def process_consumer(self, file_name: str) -> None:
-        self.pull_consumer(f"{self.data_dir}/raw/{file_name}")
+        if not os.path.exists(f"{self.data_dir}/raw/{file_name}"):
+            self.pull_consumer(f"{self.data_dir}/raw/{file_name}")
+
         df = pl.read_excel(f"{self.data_dir}/raw/{file_name}", sheet_id=1)
         names = df.head(1).to_dicts().pop()
         names = dict((k, v.lower().replace(' ', '_').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n')) for k, v in names.items())
@@ -48,6 +50,9 @@ class DataProcess(DataPull):
         df.write_parquet(f"{self.data_dir}/processed/{file_name.replace('.xls', '.parquet')}")
 
     def process_jp_index(self, file_name: str) -> pl.DataFrame:
+
+        if not os.path.exists(f"{self.data_dir}/raw/{file_name}"):
+            self.pull_economic_indicators(f"{self.data_dir}/raw/{file_name}")
 
         jp_df = self.process_sheet(f"{self.data_dir}/raw/{file_name}", 3)
 
