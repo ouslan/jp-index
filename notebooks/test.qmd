@@ -1,0 +1,24 @@
+---
+title: "Developing idb index"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os 
+os.chdir('..')
+```
+
+```{python}
+import geopandas as gpd
+```
+
+```{python}
+geo = gpd.read_file('data/raw/tl_2019_72_cousub.zip')
+geo = geo.rename(columns={'NAMELSAD': 'barrio'})
+data = gpd.read_file('/home/coder/Documents/Github/jp-index/data/raw/inseguridad por barrio.xlsx')
+data = data.merge(geo, on='barrio', how='left')
+data
+```

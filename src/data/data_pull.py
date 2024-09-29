@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import polars as pl
 import requests
 import os
 
@@ -67,4 +68,18 @@ class DataPull:
             if self.debug:
                 print(f"\033[0;31mERROR: \033[0mFailed to download file. Status code: {response.status_code}")
 
+    def pull_idb(self, file_path: str):
+        base = "https://api.census.gov/data/timeseries/idb/5year?"
+        param = "NAME,GENC,POP,BIRTHS,DEATHS,NIM"
+        time = "2010:2050"
+        url = f"{base}get={param}&YR={time}&for=genc+standard+countries+and+areas:PR"
+        json = requests.get(url).json()
+
+        df = pl.DataFrame(json)
+        names = df.select(pl.col("column_0")).transpose()
+        df = df.drop("column_0").transpose()
+        df = df.rename(names.to_dicts().pop())
+        df = df.select(pl.all().exclude("NAME", "GENC", "genc standard countries and areas")).cast(pl.Int64)
+        df = df.rename({"POP": "population", "BIRTHS": "births", "DEATHS": "deaths", "NIM": "net_migration", "YR": "year"})
+        df.write_parquet(file_path)
 

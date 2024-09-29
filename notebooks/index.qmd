@@ -23,11 +23,7 @@ from datetime import datetime
 ```
 
 ```{python}
-print("1")
-DataProcess().process_jp_index(file_name="economic_indicators.xlsx")
-print("2")
-DataProcess().process_consumer(file_name="consumer.xls")
-#DataProcess().process_sheet(file_path="data/raw/economic_indicators.xlsx", sheet_id=3).sort(pl.col("date"))
+DataProcess().process_jp_index(file_name="economic_indicators.xlsx").write_to_csv("data/raw/economic_indicators.csv")
 ```
 
 ```{python}
