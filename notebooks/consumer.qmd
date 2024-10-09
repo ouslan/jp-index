@@ -14,14 +14,22 @@ os.chdir('..')
 ```
 
 ```{python}
-import polars as pl
+from sqlmodel import Field, Session, SQLModel, create_engine
 from src.data.data_process import DataProcess
+import polars as pl
+from src.dao.consumer_table import *
 ```
 
 ```{python}
-DataProcess().process_consumer("consumer.xls")
-pl.read_parquet('data/processed/consumer.parquet')
+engine = create_engine("sqlite:///db.sqlite")
+create_consumer_table(engine)
 
+result = select_all_consumers(engine)
+pl.DataFrame(result).is_empty()
+```
+
+```{python}
+pl.read_parquet('data/processed/consumer.parquet')
 ```
 
 
