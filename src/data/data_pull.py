@@ -40,10 +40,30 @@ class DataPull:
             '__EVENTVALIDATION': '/wEdAAlUqk7OF8+IyJVVhTuf5Y1+K54MsQ9Z5Tipa4C3CU9lIy6KqsTtzWiK229TcIgvoTmJ5D8KsXArXsSdeMqOt6pk+d3fBy3LDDz0lsNt4u+CuDIENRTx3TqpeEC0BFNcbx18XLv2PDpbcvrQF1sPng9RHC+hNwNMKsAjTYpq3ZLON4FBZYDVNXrnB/9WmjDFKj6ji8qalfcp0F7IzcRWfkdgwm54EtTOkeRtMO19pSuuIg==',
             'ctl00$MainContent$Button1': 'Descargar',
         }
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            # 'Accept-Encoding': 'gzip, deflate, br, zstd',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Origin': 'https://www.mercadolaboral.pr.gov',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Referer': 'https://www.mercadolaboral.pr.gov/Tablas_Estadisticas/Otras_Tablas/T_Indice_Precio.aspx',
+            # 'Cookie': 'ASP.NET_SessionId=fgfarskxto0ozqowjfbln0ce',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User': '?1',
+            'Sec-GPC': '1',
+            'Priority': 'u=0, i',
+        }
 
         # Perform the POST request to download the file
         response = requests.post(
             'https://www.mercadolaboral.pr.gov/Tablas_Estadisticas/Otras_Tablas/T_Indice_Precio.aspx',
+            headers=headers,
             data=data,
             stream=True  # Stream the response to handle large files
         )
