@@ -2,7 +2,7 @@ from sqlmodel import Field, Session, SQLModel, select
 from typing import Optional
 
 class ConsumerTable(SQLModel, table=True):
-    id: Optional[int] = Field(primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     date: str
     ropa: float
     ropa_de_hombres: float

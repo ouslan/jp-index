@@ -1,0 +1,31 @@
+---
+title: "Developing consummer index"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os 
+os.chdir('..')
+```
+
+```{python}
+from sqlmodel import Field, Session, SQLModel, create_engine
+from src.data.data_process import DataProcess
+import polars as pl
+from src.dao.consumer_table import *
+import ibis
+
+con = ibis.sqlite.connect()
+```
+
+```{python}
+d = DataProcess("sqlite:///db.sqlite", "data/")
+```
+
+```{python}
+con = ibis.sqlite.connect("sqlite:///db.sqlite")
+```
+

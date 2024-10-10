@@ -1,6 +1,7 @@
 from sqlmodel import create_engine
 from sqlalchemy.exc import OperationalError
 from ..dao.consumer_table import create_consumer_table, select_all_consumers
+from ..dao.economic_indicators_table import create_indicators_table, select_all_indicators
 from .data_pull import DataPull
 from datetime import datetime
 import polars.selectors as cs
@@ -79,18 +80,25 @@ class DataProcess(DataPull):
         return cleaned
 
 
-    def process_jp_index(self, file_name: str) -> pl.DataFrame:
+    def process_jp_index(self, update:bool=False) -> pl.DataFrame:
 
-        if not os.path.exists(f"{self.data_dir}/raw/{file_name}"):
-            self.pull_economic_indicators(f"{self.data_dir}/raw/{file_name}")
+        if not os.path.exists(f"{self.data_dir}/raw/economic_indicators.xlsx") or update:
+            self.pull_economic_indicators(f"{self.data_dir}/raw/economic_indicators.xlsx")
+        try:
+            return pl.DataFrame(select_all_indicators(self.engine))
+        except OperationalError:
+            create_indicators_table(self.engine)
 
-        jp_df = self.process_sheet(f"{self.data_dir}/raw/{file_name}", 3)
+            jp_df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", 3)
 
-        for sheet in range(4, 20):
-            df = self.process_sheet(f"{self.data_dir}/raw/{file_name}", sheet)
-            jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
+            for sheet in range(4, 20):
+                df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", sheet)
+                jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
 
-        return jp_df
+            jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
+            jp_df.write_database(table_name="indicatorstable", connection=self.database_url, if_table_exists="replace")
+
+            return jp_df
 
 
     def process_sheet(self, file_path : str, sheet_id: int) -> pl.DataFrame:
@@ -146,8 +154,13 @@ class DataProcess(DataPull):
                       .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "diciembre").then(12)
                       .alias("month")
                         )
-                    tmp = tmp.with_columns(
-                        pl.col(column_name).str.replace_all("$", "", literal=True).str.replace_all(",", "").str.strip_chars().alias(column_name)
+                    tmp = tmp.with_columns((
+                        pl.col(column_name).str.replace_all("$", "", literal=True)
+                                           .str.replace_all("(", "", literal=True)
+                                           .str.replace_all(")", "", literal=True)
+                                           .str.replace_all(",", "")
+                                           .str.replace_all("-","")
+                                           .str.strip_chars().alias(column_name))
                     )
                     tmp = tmp.with_columns(
                         pl.when(pl.col(column_name)  == "n/d").then(None)
@@ -166,6 +179,5 @@ class DataProcess(DataPull):
                     tmp = tmp.select(pl.col("date").str.to_datetime("%Y-%m-%d").alias("date"),
                                      pl.col(column_name).alias(column_name))
 
-                    # Append the temporary DataFrame to the list
                     clean_df = pl.concat([clean_df, tmp], how="vertical")
         return clean_df
