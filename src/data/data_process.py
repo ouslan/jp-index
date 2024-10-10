@@ -74,8 +74,10 @@ class DataProcess(DataPull):
 
     def clean_name(self, name) -> str:
         cleaned = name.lower().strip()
+        cleaned = cleaned.replace('-', '').replace('=', '')
         cleaned = cleaned.replace('  ', '_').replace(' ', '_')
-        cleaned = cleaned.replace('*', '').replace(',', '').replace('-', '_')
+        cleaned = cleaned.replace('*', '').replace(',', '')
+        cleaned = cleaned.replace(')', '').replace('(', '')
         replacements = {
             'á': 'a',
             'é': 'e',
@@ -88,33 +90,46 @@ class DataProcess(DataPull):
             cleaned = cleaned.replace(old, new)
         return cleaned
 
+    def jp_index_data(self, update:bool=False) -> pl.DataFrame:
+        try:
+            df = pl.DataFrame(select_all_indicators(self.engine))
+            if df.is_empty() or update:
+                return self.process_jp_index(update)
+            else:
+                return df
+        except OperationalError:
+            return self.process_jp_index(update)
+
 
     def process_jp_index(self, update:bool=False) -> pl.DataFrame:
 
         if not os.path.exists(f"{self.data_dir}/raw/economic_indicators.xlsx") or update:
             self.pull_economic_indicators(f"{self.data_dir}/raw/economic_indicators.xlsx")
-        try:
-            return pl.DataFrame(select_all_indicators(self.engine))
-        except OperationalError:
-            create_indicators_table(self.engine)
+        create_indicators_table(self.engine)
 
-            jp_df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", 3)
+        jp_df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", 3)
 
-            for sheet in range(4, 20):
-                df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", sheet)
-                jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
+        for sheet in range(4, 20):
+            df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", sheet)
+            jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
 
-            jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
-            jp_df.write_parquet(f"{self.data_dir}/processed/jpindex.parquet")
-            jp_df.write_database(table_name="indicatorstable", connection=self.database_url, if_table_exists="append")
+        jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
+        jp_df.write_database(table_name="indicatorstable", connection=self.database_url, if_table_exists="append")
 
-            return jp_df
+        return pl.DataFrame(select_all_indicators(self.engine))
 
 
     def process_sheet(self, file_path : str, sheet_id: int) -> pl.DataFrame:
         df = pl.read_excel(file_path, sheet_id=sheet_id)
-        months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre", "Meses"]
+        months = ["Enero", "Febrero", "Marzo",
+                  "Abril", "Mayo", "Junio", "Julio",
+                  "Agosto", "Septiembre", "Octubre",
+                  "Noviembre", "Diciembre", "Meses"]
+        col_name = df.columns[1]
+        print(col_name)
+        #col_names = [self.clean_name(col_name) for col_name in col_names]
         col_name = df.columns[1].strip().lower().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n').replace('(', '').replace(')', '').replace(',', '').replace('-', '').replace('=', '').replace('  ', ' ').replace(' ', '_')
+        print(col_name)
 
         df = df.filter(pl.nth(1).is_in(months)).drop(cs.first()).head(13)
         columns = df.head(1).with_columns(pl.all()).cast(pl.String).to_dicts().pop()
