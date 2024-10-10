@@ -9,7 +9,28 @@ import polars as pl
 import os
 
 class DataProcess(DataPull):
+    """
+    Data processing class that calculates multiple indicators from the DataPull class
+    """
     def __init__(self, database_url:str='sqlite:///db.sqlite', data_dir:str='data/', debug:bool=False):
+        """
+        Constructor for the DataProcess class. Creates a connection to the database and 
+        creates the data directory if it does not exist.
+
+        Parameters
+        ----------
+        database_url : str
+            The URL of the database to connect to. Defaults to 'sqlite:///db.sqlite'.
+            Can be any valid SQLAlchemy connection string.
+        data_dir : str
+            The directory to store the data. Defaults to 'data/'.
+        debug : bool
+            Whether to print debug messages. Defaults to False.
+
+        Returns
+        -------
+        DataProcess
+        """
         self.debug = debug
         self.database_url = database_url
         self.engine = create_engine(self.database_url)
@@ -21,6 +42,19 @@ class DataProcess(DataPull):
             os.makedirs(f'{data_dir}/processed')
 
     def consumer_data(self, update:bool=False) -> pl.DataFrame:
+        """
+        Retrieves the consumer data from the database. If the data does not exist or 
+        the update flag is set to True, it will process the consumer data and store it
+
+        Parameters
+        ----------
+        update : bool
+            Whether to update the data. Defaults to False.
+
+        Returns
+        -------
+        pl.DataFrame
+        """
         try:
             df = pl.DataFrame(select_all_consumers(self.engine))
             if df.is_empty() or update:
@@ -31,6 +65,19 @@ class DataProcess(DataPull):
             return self.process_consumer(update)
 
     def process_consumer(self, update:bool=False) -> pl.DataFrame:
+        """
+        Processes the consumer data and stores it in the database. If the data does 
+        not exist, it will pull the data from the source.
+
+        Parameters
+        ----------
+        update : bool
+            Whether to update the data. Defaults to False.
+
+        Returns
+        -------
+        pl.DataFrame
+        """
         if not os.path.exists(f"{self.data_dir}/raw/consumer.xls") or update:
             self.pull_consumer(f"{self.data_dir}/raw/consumer.xls")
         try:
@@ -72,7 +119,20 @@ class DataProcess(DataPull):
             df.write_database(table_name="consumertable", connection=self.database_url, if_table_exists="append")
             return pl.DataFrame(select_all_consumers(self.engine))
 
-    def clean_name(self, name) -> str:
+    def clean_name(self, name:str) -> str:
+        """
+        Cleans the name of a column by converting it to lowercase, removing special characters,
+        and replacing accented characters with their non-accented counterparts.
+
+        Parameters
+        ----------
+        name : str
+
+        Returns
+        -------
+        str
+
+        """
         cleaned = name.lower().strip()
         cleaned = cleaned.replace('-', '').replace('=', '')
         cleaned = cleaned.replace('  ', '_').replace(' ', '_')
@@ -91,6 +151,19 @@ class DataProcess(DataPull):
         return cleaned
 
     def jp_index_data(self, update:bool=False) -> pl.DataFrame:
+        """
+        Retrieves the economic indicators data from the database. If the data does not exist or
+        the update flag is set to True, it will process the economic indicators data and store it
+
+        Parameters
+        ----------
+        update : bool
+            Whether to update the data. Defaults to False.
+
+        Returns
+        -------
+        pl.DataFrame
+        """
         try:
             df = pl.DataFrame(select_all_indicators(self.engine))
             if df.is_empty() or update:
@@ -102,6 +175,19 @@ class DataProcess(DataPull):
 
 
     def process_jp_index(self, update:bool=False) -> pl.DataFrame:
+        """
+        Processes the economic indicators data and stores it in the database. 
+        If the data does not exist, it will pull the data from the source.
+
+        Parameters
+        ----------
+        update : bool
+            Whether to update the data. Defaults to False.
+
+        Returns
+        -------
+        pl.DataFrame
+        """
 
         if not os.path.exists(f"{self.data_dir}/raw/economic_indicators.xlsx") or update:
             self.pull_economic_indicators(f"{self.data_dir}/raw/economic_indicators.xlsx")
@@ -114,22 +200,33 @@ class DataProcess(DataPull):
             jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
 
         jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
-        jp_df.write_database(table_name="indicatorstable", connection=self.database_url, if_table_exists="append")
+        jp_df.write_database(table_name="indicatorstable", connection=self.database_url, if_table_exists="replace") #TODO: make it so that it is an append
 
         return pl.DataFrame(select_all_indicators(self.engine))
 
 
     def process_sheet(self, file_path : str, sheet_id: int) -> pl.DataFrame:
+        """
+        Processes a sheet from the economic indicators data and returns a DataFrame
+
+        Parameters
+        ----------
+        file_path : str
+            The path to the Excel file
+
+        sheet_id : int
+            The sheet ID to process
+
+        Returns
+        -------
+        pl.DataFrame
+        """
         df = pl.read_excel(file_path, sheet_id=sheet_id)
         months = ["Enero", "Febrero", "Marzo",
                   "Abril", "Mayo", "Junio", "Julio",
                   "Agosto", "Septiembre", "Octubre",
                   "Noviembre", "Diciembre", "Meses"]
-        col_name = df.columns[1]
-        print(col_name)
-        #col_names = [self.clean_name(col_name) for col_name in col_names]
-        col_name = df.columns[1].strip().lower().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n').replace('(', '').replace(')', '').replace(',', '').replace('-', '').replace('=', '').replace('  ', ' ').replace(' ', '_')
-        print(col_name)
+        col_name = self.clean_name(df.columns[1])
 
         df = df.filter(pl.nth(1).is_in(months)).drop(cs.first()).head(13)
         columns = df.head(1).with_columns(pl.all()).cast(pl.String).to_dicts().pop()
@@ -151,6 +248,20 @@ class DataProcess(DataPull):
         return df
 
     def process_panel(self, df: pl.DataFrame, col_name:str) -> pl.DataFrame:
+        """
+        Processes the data and turns it into a panel DataFrame
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            The DataFrame to process
+        col_name : str
+            The name of the column to process
+
+        Returns
+        -------
+        pl.DataFrame
+        """
         empty_df = [
             pl.Series("date", [], dtype=pl.Datetime),
             pl.Series(col_name, [], dtype=pl.Float64)
@@ -158,51 +269,47 @@ class DataProcess(DataPull):
         clean_df = pl.DataFrame(empty_df)
 
         for column in df.columns:
-                    if column == "Meses":
-                        continue
-                    column_name = col_name
-                    # Create a temporary DataFrame
-                    tmp = df
-                    tmp = tmp.rename({column:column_name})
-                    tmp = tmp.with_columns(
-                    pl.when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "enero").then(1)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "febrero").then(2)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "marzo").then(3)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "abril").then(4)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "mayo").then(5)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "junio").then(6)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "julio").then(7)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "agosto").then(8)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "septiembre").then(9)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "octubre").then(10)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "noviembre").then(11)
-                      .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "diciembre").then(12)
-                      .alias("month")
-                        )
-                    tmp = tmp.with_columns((
-                        pl.col(column_name).str.replace_all("$", "", literal=True)
-                                           .str.replace_all("(", "", literal=True)
-                                           .str.replace_all(")", "", literal=True)
-                                           .str.replace_all(",", "")
-                                           .str.replace_all("-","")
-                                           .str.strip_chars().alias(column_name))
-                    )
-                    tmp = tmp.with_columns(
-                        pl.when(pl.col(column_name)  == "n/d").then(None)
-                        .when(pl.col(column_name)  == "**").then(None)
-                        .when(pl.col(column_name)  == "-").then(None)
-                        .when(pl.col(column_name)  == "no disponible").then(None)
-                        .otherwise(pl.col(column_name)).alias(column_name)
-                    )
-                    tmp = tmp.select(
-                                    pl.col("month").cast(pl.Int64).alias("month"),
-                                    pl.lit(int(column)).cast(pl.Int64).alias("year"),
-                                    pl.col(column_name).cast(pl.Float64).alias(column_name)
-                    )
+            if column == "Meses":
+                continue
+            column_name = col_name
+            # Create a temporary DataFrame
+            tmp = df
+            tmp = tmp.rename({column:column_name})
+            tmp = tmp.with_columns(
+            pl.when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "enero").then(1)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "febrero").then(2)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "marzo").then(3)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "abril").then(4)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "mayo").then(5)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "junio").then(6)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "julio").then(7)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "agosto").then(8)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "septiembre").then(9)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "octubre").then(10)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "noviembre").then(11)
+                .when(pl.col("Meses").str.strip_chars().str.to_lowercase() == "diciembre").then(12)
+                .alias("month"))
+            tmp = tmp.with_columns((
+                pl.col(column_name).str.replace_all("$", "", literal=True)
+                                    .str.replace_all("(", "", literal=True)
+                                    .str.replace_all(")", "", literal=True)
+                                    .str.replace_all(",", "")
+                                    .str.replace_all("-","")
+                                    .str.strip_chars().alias(column_name)))
+            tmp = tmp.with_columns(
+                pl.when(pl.col(column_name)  == "n/d").then(None)
+                .when(pl.col(column_name)  == "**").then(None)
+                .when(pl.col(column_name)  == "-").then(None)
+                .when(pl.col(column_name)  == "no disponible").then(None)
+                .otherwise(pl.col(column_name)).alias(column_name))
+            tmp = tmp.select(
+                            pl.col("month").cast(pl.Int64).alias("month"),
+                            pl.lit(int(column)).cast(pl.Int64).alias("year"),
+                            pl.col(column_name).cast(pl.Float64).alias(column_name))
 
-                    tmp = tmp.with_columns((pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01").alias("date"))
-                    tmp = tmp.select(pl.col("date").str.to_datetime("%Y-%m-%d").alias("date"),
-                                     pl.col(column_name).alias(column_name))
+            tmp = tmp.with_columns((pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01").alias("date"))
+            tmp = tmp.select(pl.col("date").str.to_datetime("%Y-%m-%d").alias("date"),
+                                pl.col(column_name).alias(column_name))
 
-                    clean_df = pl.concat([clean_df, tmp], how="vertical")
+            clean_df = pl.concat([clean_df, tmp], how="vertical")
         return clean_df
