@@ -20,6 +20,16 @@ class DataProcess(DataPull):
         if not os.path.exists(f'{data_dir}/processed'):
             os.makedirs(f'{data_dir}/processed')
 
+    def consumer_data(self, update:bool=False) -> pl.DataFrame:
+        try:
+            df = pl.DataFrame(select_all_consumers(self.engine))
+            if df.is_empty() or update:
+                return self.process_consumer(update)
+            else:
+                return df
+        except OperationalError:
+            return self.process_consumer(update)
+
     def process_consumer(self, update:bool=False) -> pl.DataFrame:
         if not os.path.exists(f"{self.data_dir}/raw/consumer.xls") or update:
             self.pull_consumer(f"{self.data_dir}/raw/consumer.xls")
@@ -27,7 +37,6 @@ class DataProcess(DataPull):
             return pl.DataFrame(select_all_consumers(self.engine))
         except OperationalError:
             create_consumer_table(self.engine)
-
             df = pl.read_excel(f"{self.data_dir}/raw/consumer.xls", sheet_id=1)
             names = df.head(1).to_dicts().pop()
             names = {k: self.clean_name(v) for k, v in names.items()}
@@ -60,8 +69,8 @@ class DataProcess(DataPull):
             df = df.with_columns(pl.all().exclude("date").cast(pl.Float64))
             df = df.with_columns(id=pl.col("date").rank().cast(pl.Int64))
             df.write_parquet(f"{self.data_dir}/processed/consumer.parquet")
-            df.write_database(table_name="consumertable", connection=self.database_url, if_table_exists="replace")
-            return df
+            df.write_database(table_name="consumertable", connection=self.database_url, if_table_exists="append")
+            return pl.DataFrame(select_all_consumers(self.engine))
 
     def clean_name(self, name) -> str:
         cleaned = name.lower().strip()
@@ -96,7 +105,8 @@ class DataProcess(DataPull):
                 jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
 
             jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
-            jp_df.write_database(table_name="indicatorstable", connection=self.database_url, if_table_exists="replace")
+            jp_df.write_parquet(f"{self.data_dir}/processed/jpindex.parquet")
+            jp_df.write_database(table_name="indicatorstable", connection=self.database_url, if_table_exists="append")
 
             return jp_df
 
@@ -104,7 +114,7 @@ class DataProcess(DataPull):
     def process_sheet(self, file_path : str, sheet_id: int) -> pl.DataFrame:
         df = pl.read_excel(file_path, sheet_id=sheet_id)
         months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre", "Meses"]
-        col_name = df.columns[1].strip().replace(' ', '_').lower().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n')
+        col_name = df.columns[1].strip().lower().replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n').replace('(', '').replace(')', '').replace(',', '').replace('-', '').replace('=', '').replace('  ', ' ').replace(' ', '_')
 
         df = df.filter(pl.nth(1).is_in(months)).drop(cs.first()).head(13)
         columns = df.head(1).with_columns(pl.all()).cast(pl.String).to_dicts().pop()

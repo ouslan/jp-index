@@ -16,9 +16,6 @@ from sqlmodel import Field, Session, SQLModel, create_engine
 from src.data.data_process import DataProcess
 import polars as pl
 from src.dao.consumer_table import *
-import ibis
-
-con = ibis.sqlite.connect()
 ```
 
 ```{python}
@@ -26,6 +23,8 @@ d = DataProcess("sqlite:///db.sqlite", "data/")
 ```
 
 ```{python}
-con = ibis.sqlite.connect("sqlite:///db.sqlite")
+#d.consumer_data()
+d.process_jp_index()
+#pl.read_parquet("data/processed/jpindex.parquet").columns
 ```
 
