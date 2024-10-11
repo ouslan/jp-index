@@ -14,16 +14,23 @@ os.chdir('..')
 ```
 
 ```{python}
-import polars as pl
+from sqlmodel import Field, Session, SQLModel, create_engine
 from src.data.data_process import DataProcess
+import polars as pl
+from src.dao.consumer_table import *
 ```
 
 ```{python}
-DataProcess().process_consumer("consumer.xls")
-pl.read_parquet('data/processed/consumer.parquet')
-
+d = DataProcess("sqlite:///db.sqlite", "data/")
 ```
 
+```{python}
+d.process_consumer()
+```
+
+```{python}
+pl.read_parquet("data/processed/consumer.parquet").columns
+```
 
 ```{python}
 df = pl.read_excel('data/raw/consumer.xls', sheet_id=1)
@@ -57,4 +64,86 @@ df = df.drop(['year', 'month', 'descripcion'])
 df = df.with_columns(pl.all().exclude("date").cast(pl.Float64))
 df
 ```
+
+['ropa',
+ 'ropa_de_hombres',
+ 'ropa_de_ninos',
+ 'ropa_de_mujer',
+ 'ropa_de_ninas',
+ 'calzado',
+ 'ropa_de_bebe_y_de_infantes',
+ 'relojes_y_joyeria',
+ 'educacion_y_comunicacion',
+ 'materiales_educativos',
+ 'matricula_mensualidades_y_cuido__de_ninos',
+ 'correo_y_otros_servicios_postales',
+ 'telefonos',
+ 'otros_servicios_informativos',
+ 'alimentos_y_bebidas',
+ 'cereales_y_productos_de_cereales',
+ 'productos_horneados',
+ 'carne_de_res',
+ 'carne_de_cerdo',
+ 'otras_carnes',
+ 'carne_de_aves',
+ 'pescados_y_mariscos',
+ 'huevos',
+ 'productos_lacteos_y_relacionados',
+ 'frutas_frescas',
+ 'vegetales_frescos',
+ 'frutas_y_vegetales_elaborados',
+ 'jugos_de_frutas_y_vegetales_y_bebidas_sin_alcohol',
+ 'material_para_bebidas_incluyendo_cafe_y_te',
+ 'azucares_y_endulzadores',
+ 'grasas__aceites_y_aderezos',
+ 'otros_alimentos',
+ 'alimentos_para_consumo_fuera_del_hogar',
+ 'bebidas_alcoholicas_para_consumo_en_el_hogar',
+ 'bebidas_alcoholicas_para_consumo_fuera_del_hogar',
+ 'otros_articulos_y_servicios',
+ 'tabaco_y_productos_relacionados',
+ 'productos_para_el_cuidado_personal',
+ 'servicios_cuidado_personal',
+ 'servicios_personales_miscelaneos',
+ 'otros_gastos',
+ 'alojamiento',
+ 'alquiler_de_la_residencia_primaria',
+ 'alojamiento_fuera_del_hogar',
+ 'alquiler_equivalente_de_la_vivienda_poseida',
+ 'seguros_de_la_vivienda_o_de_inquilinos_',
+ 'combustible_para_la_vivienda',
+ 'electricidad',
+ 'agua_alcantarillados_y_limpieza_de_pozos_septicos',
+ 'cortinas_alfombras_y_otros_similares',
+ 'mobiliario',
+ 'enseres_del_hogar',
+ 'otros_equipos_del_hogar',
+ 'herramientas_equipo_para_uso_exterior_y_articulos_de_ferreteria',
+ 'articulos_del_hogar',
+ 'servicios_para_el_hogar',
+ 'cuidado_medico',
+ 'medicinas_recetadas_y_vacunas',
+ 'medicinas_no_recetadas_y_equipo_medico',
+ 'servicios_profesionales',
+ 'hospitales_y_servicios_relacionados',
+ 'seguros_de_salud',
+ 'entretenimiento',
+ 'video_y_audio',
+ 'mascotas_productos_y_servicios_para_mascotas',
+ 'productos_deportivos',
+ 'fotografia',
+ 'otros_productos_para_entretenimiento',
+ 'servicios_para_el_entretenimiento',
+ 'libros_y_revistas',
+ 'transporte*',
+ 'vehiculos-compra_y_alquiler',
+ 'combustible_para_motores_y_otros',
+ 'piezas_y_equipos_para_vehiculos_de_motor',
+ 'mantenimiento_y_reparacion_de_vehiculos',
+ 'seguros_para_vehiculos_de_motor',
+ 'tarifas_para_vehiculos_de_motor',
+ 'transporte_publico',
+ 'todos_los_articulos_y_servicios',
+ 'date',
+ 'id']
 

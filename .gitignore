@@ -167,3 +167,4 @@ data/*
 # Ignore Notebooks
 notebooks/*
 !notebooks/*.qmd
+*.sqlite
