@@ -116,7 +116,7 @@ class DataProcess(DataPull):
             df = df.with_columns(pl.all().exclude("date").cast(pl.Float64))
             df = df.with_columns(id=pl.col("date").rank().cast(pl.Int64))
             df.write_parquet(f"{self.data_dir}/processed/consumer.parquet")
-            df.write_database(table_name="consumertable", connection=self.database_url, if_table_exists="append")
+            df.write_database(table_name="consumertable", connection=self.database_url, if_table_exists="replace")
             return pl.DataFrame(select_all_consumers(self.engine))
 
     def clean_name(self, name:str) -> str:
@@ -134,7 +134,7 @@ class DataProcess(DataPull):
 
         """
         cleaned = name.lower().strip()
-        cleaned = cleaned.replace('-', '').replace('=', '')
+        cleaned = cleaned.replace('-', ' ').replace('=', '')
         cleaned = cleaned.replace('  ', '_').replace(' ', '_')
         cleaned = cleaned.replace('*', '').replace(',', '')
         cleaned = cleaned.replace(')', '').replace('(', '')
