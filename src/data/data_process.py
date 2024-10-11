@@ -137,6 +137,7 @@ class DataProcess(DataPull):
         cleaned = cleaned.replace('-', ' ').replace('=', '')
         cleaned = cleaned.replace('  ', '_').replace(' ', '_')
         cleaned = cleaned.replace('*', '').replace(',', '')
+        cleaned = cleaned.replace('__', '_')
         cleaned = cleaned.replace(')', '').replace('(', '')
         replacements = {
             'á': 'a',
