@@ -1,7 +1,6 @@
 from sqlmodel import create_engine
-from sqlalchemy.exc import OperationalError
 from ..dao.consumer_table import create_consumer_table
-from ..dao.economic_indicators_table import create_indicators_table, select_all_indicators
+from ..dao.economic_indicators_table import create_indicators_table
 from .data_pull import DataPull
 from datetime import datetime
 import polars.selectors as cs
@@ -61,10 +60,10 @@ class DataProcess(DataPull):
         pl.DataFrame
         """
         if "consumertable" not in self.conn.list_tables() or update:
-            self.process_consumer(update)
+            self.process_consumer()
         return self.conn.table("consumertable").to_polars()
 
-    def process_consumer(self, update:bool=False) -> None:
+    def process_consumer(self) -> None:
         """
         Processes the consumer data and stores it in the database. If the data does 
         not exist, it will pull the data from the source.
@@ -157,17 +156,11 @@ class DataProcess(DataPull):
         -------
         pl.DataFrame
         """
-        try:
-            df = pl.DataFrame(select_all_indicators(self.engine))
-            if df.is_empty() or update:
-                return self.process_jp_index(update)
-            else:
-                return df
-        except OperationalError:
-            return self.process_jp_index(update)
+        if "indicatorstable" not in self.conn.list_tables() or update:
+            self.process_jp_index()
+        return self.conn.table("indicatorstable").to_polars()
 
-
-    def process_jp_index(self, update:bool=False) -> pl.DataFrame:
+    def process_jp_index(self) -> None:
         """
         Processes the economic indicators data and stores it in the database. 
         If the data does not exist, it will pull the data from the source.
@@ -182,8 +175,6 @@ class DataProcess(DataPull):
         pl.DataFrame
         """
 
-        if not os.path.exists(f"{self.data_dir}/raw/economic_indicators.xlsx") or update:
-            self.pull_economic_indicators(f"{self.data_dir}/raw/economic_indicators.xlsx")
         create_indicators_table(self.engine)
 
         jp_df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", 3)
@@ -192,10 +183,8 @@ class DataProcess(DataPull):
             df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", sheet)
             jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
 
-        jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
-        jp_df.write_database(table_name="indicatorstable", connection=self.database_url, if_table_exists="replace") #TODO: make it so that it is an append
-
-        return pl.DataFrame(select_all_indicators(self.engine))
+        jp_df = jp_df.sort(by="date")
+        self.conn.insert("indicatorstable", jp_df)
 
 
     def process_sheet(self, file_path : str, sheet_id: int) -> pl.DataFrame:

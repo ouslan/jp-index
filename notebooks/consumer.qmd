@@ -25,7 +25,7 @@ d = DataProcess("sqlite:///db.sqlite", "data/")
 ```
 
 ```{python}
-d.process_consumer()
+d.jp_index_data(update=True)
 ```
 
 ```{python}
