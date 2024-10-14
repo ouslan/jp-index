@@ -29,7 +29,7 @@ d.process_consumer()
 ```
 
 ```{python}
-pl.read_parquet("data/processed/consumer.parquet").columns
+d.consumer_data()
 ```
 
 ```{python}
