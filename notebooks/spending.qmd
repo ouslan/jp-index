@@ -1,0 +1,30 @@
+---
+title: "Developing consummer index"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+# Developing a consumer price index
+
+```{python}
+import os 
+os.chdir('..')
+```
+
+```{python}
+import polars as pl
+import requests
+```
+
+```{python}
+year = "2010"
+fips = "06"
+base = "https://api.usaspending.gov/"
+param = f"api/v2/search/spending_by_category/{fips}/"
+url = base + param
+print(url)
+r = requests.get(url).json()
+pl.DataFrame(r)
+```
