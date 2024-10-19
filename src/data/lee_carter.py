@@ -25,6 +25,7 @@ class mortModel():
         matrix = self.centralized_matrix().to_numpy()
         U,S,V = np.linalg.svd(matrix)
         age_constant_list = pd.DataFrame(U)
+        age_constant_list = age_constant_list.T.iloc[0]
         return age_constant_list
     
 
@@ -32,19 +33,23 @@ class mortModel():
         matrix = self.centralized_matrix().to_numpy()
         U,S,V = np.linalg.svd(matrix)
         year_constants = pd.DataFrame(V)
+        year_constants = year_constants.iloc[0]
         return year_constants
     
     def scaling_eigenvalue(self):
         matrix = self.centralized_matrix().to_numpy()
         U,S,V = np.linalg.svd(matrix)
-        scalar = S
-        return scalar
+        vector = list(S)
+        return vector[0]
 
 
 def main():
     deaths_male = pd.read_csv("deaths_male.csv").set_index("age_group")
     exposure_male = pd.read_csv("exposure_male.csv").set_index("age_group")
     lc = mortModel(deaths_male, exposure_male)
+    print(lc.age_constants())
+    print(lc.year_constants())
+    print(lc.scaling_eigenvalue())
 
 
 if __name__ == "__main__":
