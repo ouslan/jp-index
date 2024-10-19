@@ -14,7 +14,7 @@ class mortModel():
         self.projected_death_rate = ...
         
     def centralized_matrix(self):
-        centered_matrix = pd.DataFrame(index = self.log_death_rate.index)
+        centered_matrix = pd.DataFrame(index = self.log_death_rate.columns.items())
         for i in range(1,17):
             centered_matrix[f"male_{i}"] = pd.concat([pd.Series(self.log_death_rate[f"male_{i}"] - self.mort_constants[f"male_{i}"])], axis = 1)
         return centered_matrix
@@ -32,6 +32,12 @@ class mortModel():
         U,S,V = np.linalg.svd(matrix)
         year_constants = pd.DataFrame(V)
         return year_constants
+    
+    def scaling_eigenvalue(self):
+        matrix = self.centralized_matrix().to_numpy()
+        U,S,V = np.linalg.svd(matrix)
+        scalar = S
+        return scalar
 
 
 def main():
@@ -39,8 +45,7 @@ def main():
     exposure_male = pd.read_csv("exposure_male.csv").set_index("year")
     lc = mortModel(deaths_male, exposure_male)
     print(lc.centralized_matrix())
-    print(lc.age_constants())
-    print(lc.year_constants())
+    
 
 
 if __name__ == "__main__":
