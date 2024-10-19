@@ -9,14 +9,15 @@ class mortModel():
         self.exposure = exposure
         self.death_rate = self.deaths.divide(self.exposure)
         self.log_death_rate = np.log(self.death_rate)
-        self.mort_constants = self.log_death_rate.sum() / len(self.log_death_rate.index.values.tolist())
+        self.mort_constants = self.log_death_rate.sum() / self.log_death_rate.index.size
         self.projected_year_constant = ...
         self.projected_death_rate = ...
         
     def centralized_matrix(self):
-        centered_matrix = pd.DataFrame(index = self.log_death_rate.columns.items())
-        for i in range(1,17):
-            centered_matrix[f"male_{i}"] = pd.concat([pd.Series(self.log_death_rate[f"male_{i}"] - self.mort_constants[f"male_{i}"])], axis = 1)
+        centered_matrix = pd.DataFrame(index = self.log_death_rate.index)
+        headers = list(self.log_death_rate.columns.values)
+        for i in range(int(headers[0]), int(headers[-1])+1):
+            centered_matrix[i] = pd.concat([pd.Series(self.log_death_rate[f"{i}"] - self.mort_constants.iloc[i-int(headers[0])])], axis = 1)
         return centered_matrix
     
 
@@ -41,11 +42,9 @@ class mortModel():
 
 
 def main():
-    deaths_male = pd.read_csv("deaths_male.csv").set_index("year")
-    exposure_male = pd.read_csv("exposure_male.csv").set_index("year")
+    deaths_male = pd.read_csv("deaths_male.csv").set_index("age_group")
+    exposure_male = pd.read_csv("exposure_male.csv").set_index("age_group")
     lc = mortModel(deaths_male, exposure_male)
-    print(lc.centralized_matrix())
-    
 
 
 if __name__ == "__main__":
