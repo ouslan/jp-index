@@ -78,17 +78,20 @@ class mortModel():
             for j in range(0,16):
                 # Calculate mortality rate from formula (mx,t = ax + s1*bx*kt) and append result to empty list
                 values_list.append(np.exp(self.mort_constants()[j] + (self.scaling_eigenvalue()*self.age_constants()[j]*projected_constants[i])))
-                print(f"Age group {j} for year {i} done")
+                print(f"Age group {j} for year {i+int(self.death_rate.columns.values[0])} done")
             # Add list of results to the mortality DataFrame
-            mortality[i] = pd.concat([pd.Series(values_list)], axis=1)
-            print(f"Year {i} done")
+            mortality[i+int(self.death_rate.columns.values[0])] = pd.concat([pd.Series(values_list)], axis=1)
+            print(f"Year {i+int(self.death_rate.columns.values[0])} done")
         return mortality
 
 
 def main():
     deaths_male = pd.read_csv("deaths_male.csv").set_index("age_group")
     exposure_male = pd.read_csv("exposure_male.csv").set_index("age_group")
-    lc = mortModel(deaths_male, exposure_male)
+    deaths_female = pd.read_csv("deaths_female.csv").set_index("age_group")
+    exposure_female = pd.read_csv("exposure_female.csv").set_index("age_group")
+    lc_m = mortModel(deaths_male, exposure_male)
+    lc_f = mortModel(deaths_female, exposure_female)
 
 
 if __name__ == "__main__":
