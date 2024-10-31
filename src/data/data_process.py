@@ -53,7 +53,7 @@ class DataIndex(DataPull):
                 port=self.database_url.split("://")[1].split(":")[2].split("/")[0],
                 database=self.database_url.split("://")[1].split(":")[2].split("/")[1])
 
-    def consumer_data(self, update:bool=False) -> pl.DataFrame:
+    def consumer_data(self, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Retrieves the consumer data from the database. If the data does not exist or 
         the update flag is set to True, it will process the consumer data and store it
@@ -72,7 +72,7 @@ class DataIndex(DataPull):
         else:
             return self.conn.table("consumertable") 
 
-    def process_consumer(self, update:bool=False) -> pl.DataFrame:
+    def process_consumer(self, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Processes the consumer data and stores it in the database. If the data does 
         not exist, it will pull the data from the source.
@@ -155,7 +155,7 @@ class DataIndex(DataPull):
             cleaned = cleaned.replace(old, new)
         return cleaned
 
-    def jp_index_data(self, update:bool=False) -> pl.DataFrame:
+    def jp_index_data(self, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Retrieves the economic indicators data from the database. If the data does not exist or
         the update flag is set to True, it will process the economic indicators data and store it
@@ -174,7 +174,7 @@ class DataIndex(DataPull):
         else:
             return self.conn.table("indicatorstable")
 
-    def process_jp_index(self, update:bool=False) -> pl.DataFrame:
+    def process_jp_index(self, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Processes the economic indicators data and stores it in the database. 
         If the data does not exist, it will pull the data from the source.

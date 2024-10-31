@@ -22,7 +22,6 @@ d = DataIndex("postgresql://postgres:password@localhost:5432/postgres", "data/")
 
 ```{python}
 #d.consumer_data()
-d.jp_index_data().is_empty() #
-#pl.read_parquet("data/processed/jpindex.parquet").columns
+d.consumer_data().to_polars()
 ```
 
