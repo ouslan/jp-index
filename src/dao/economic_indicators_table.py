@@ -23,5 +23,4 @@ class IndicatorsTable(SQLModel, table=True):
     encuesta_de_establecimientos_manufactura: Optional[float] = None
 
 def create_indicators_table(engine):
-    SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)

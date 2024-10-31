@@ -85,5 +85,4 @@ class ConsumerTable(SQLModel, table=True):
     todos_los_articulos_y_servicios: float
 
 def create_consumer_table(engine):
-    SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
