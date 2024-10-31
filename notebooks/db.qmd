@@ -22,6 +22,6 @@ d = DataIndex("postgresql://postgres:password@localhost:5432/postgres", "data/")
 
 ```{python}
 #d.consumer_data()
-d.consumer_data().to_polars()
+type(d.conn.list_tables())
 ```
 

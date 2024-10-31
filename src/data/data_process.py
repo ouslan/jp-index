@@ -15,7 +15,7 @@ class DataIndex(DataPull):
     """
     Data processing class that calculates multiple indicators from the DataPull class
     """
-    def __init__(self, database_url:str='sqlite:///db.sqlite', data_dir:str='data/', debug:bool=False):
+    def __init__(self, database_url:str='sqlite:///db.sqlite', data_dir:str='data', debug:bool=False):
         """
         Constructor for the DataProcess class. Creates a connection to the database and 
         creates the data directory if it does not exist.
