@@ -12,14 +12,12 @@ os.chdir('..')
 ```
 
 ```{python}
-from sqlmodel import Field, Session, SQLModel, create_engine
-from src.data.data_process import DataProcess
+from src.data.data_process import DataIndex
 import polars as pl
-from src.dao.consumer_table import *
 ```
 
 ```{python}
-d = DataProcess("sqlite:///db.sqlite", "data/")
+d = DataIndex("postgresql://postgres:password@localhost:5432/postgres", "data/")
 ```
 
 ```{python}

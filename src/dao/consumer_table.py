@@ -85,9 +85,5 @@ class ConsumerTable(SQLModel, table=True):
     todos_los_articulos_y_servicios: float
 
 def create_consumer_table(engine):
+    SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
-
-def select_all_consumers(engine):
-    with Session(engine) as session:
-        statement = select(ConsumerTable)
-        return session.exec(statement).all()
