@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+from statsmodels.tsa.arima.model import ARIMA
 
 class mortModel():
     def __init__(self, deaths, exposure):
@@ -83,6 +83,22 @@ class mortModel():
             mortality[i+int(self.death_rate.columns.values[0])] = pd.concat([pd.Series(values_list)], axis=1)
             print(f"Year {i+int(self.death_rate.columns.values[0])} done")
         return mortality
+    
+    def year_constants_projection(self, n_years, p=0, d=1, q=0, ext_constants = None, custom_constants=False):
+        if custom_constants == True:
+            y_constants = ext_constants
+        else:
+            y_constants = self.year_constants()
+        
+        # Arima
+        model = ARIMA(y_constants, order=(p,d,q))
+        model_fit = model.fit()
+        y_constants_f = model_fit.forecast(n_years)
+        y_constants_f = pd.Series(y_constants_f)
+        y_constants_f = y_constants._append(y_constants_f, ignore_index=True)
+        return y_constants_f
+
+        
 
 
 def main():
@@ -92,7 +108,7 @@ def main():
     exposure_female = pd.read_csv("exposure_female.csv").set_index("age_group")
     lc_m = mortModel(deaths_male, exposure_male)
     lc_f = mortModel(deaths_female, exposure_female)
-
+    print(lc_m.year_constants_projection(30))
 
 if __name__ == "__main__":
     main()
