@@ -84,8 +84,8 @@ class mortModel():
             print(f"Year {i+int(self.death_rate.columns.values[0])} done")
         return mortality
     
-    def year_constants_projection(self, n_years, p=0, d=1, q=0, ext_constants = None, custom_constants=False):
-        if custom_constants == True:
+    def year_constants_projection(self, n_years, p=0, d=1, q=0, ext_constants = None):
+        if ext_constants != None:
             y_constants = ext_constants
         else:
             y_constants = self.year_constants()
