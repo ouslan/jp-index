@@ -69,25 +69,6 @@ class DataIndex(DataPull):
                 port=self.database_url.split("://")[1].split(":")[2].split("/")[0],
                 database=self.database_url.split("://")[1].split(":")[2].split("/")[1])
 
-    def consumer_data(self, update:bool=False) -> ibis.expr.types.relations.Table:
-        """
-        Retrieves the consumer data from the database. If the data does not exist or 
-        the update flag is set to True, it will process the consumer data and store it
-
-        Parameters
-        ----------
-        update : bool
-            Whether to update the data. Defaults to False.
-
-        Returns
-        -------
-        pl.DataFrame
-        """
-        if "consumertable" not in self.conn.list_tables() or self.conn.table("consumertable").count().execute() == 0 or update:
-            return self.process_consumer(update)
-        else:
-            return self.conn.table("consumertable") 
-
     def process_consumer(self, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Processes the consumer data and stores it in the database. If the data does 
@@ -104,7 +85,7 @@ class DataIndex(DataPull):
         """
         if not os.path.exists(f"{self.data_dir}/raw/consumer.xls") or update:
             self.pull_consumer(f"{self.data_dir}/raw/consumer.xls")
-        if not "consumertable" in self.conn.list_tables():
+        if "consumertable" not in self.conn.list_tables() or self.conn.table("consumertable").count().execute() == 0 or update:
             create_consumer_table(self.engine)
             df = pl.read_excel(f"{self.data_dir}/raw/consumer.xls", sheet_id=1)
             names = df.head(1).to_dicts().pop()
@@ -126,9 +107,9 @@ class DataIndex(DataPull):
                   .when(pl.col('descripcion').str.contains("nov")).then(pl.col('descripcion').str.replace("nov", "11").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
                   .when(pl.col('descripcion').str.contains("dic")).then(pl.col('descripcion').str.replace("dic", "12").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
                   .otherwise(pl.col('descripcion').str.split_exact('-', 1).struct.rename_fields(['year', 'month']).alias('date'))
-              )).unnest("date")
+                )).unnest("date")
             df = df.with_columns((
-              pl.when((pl.col("year").str.len_chars() == 2) & (pl.col("year").str.strip_chars().cast(pl.Int32) < 80)).then(pl.col("year").str.strip_chars().cast(pl.Int32) + 2000)
+                pl.when((pl.col("year").str.len_chars() == 2) & (pl.col("year").str.strip_chars().cast(pl.Int32) < 80)).then(pl.col("year").str.strip_chars().cast(pl.Int32) + 2000)
                 .when((pl.col("year").str.len_chars() == 2) & (pl.col("year").str.strip_chars().cast(pl.Int32) >= 80)).then(pl.col("year").str.strip_chars().cast(pl.Int32) + 1900)
                 .otherwise(pl.col("year").str.strip_chars().cast(pl.Int32)).alias("year")
             ))
@@ -136,9 +117,7 @@ class DataIndex(DataPull):
             df = df.with_columns(pl.col("date").cast(pl.String))
             df = df.drop(['year', 'month', 'descripcion'])
             df = df.with_columns(pl.all().exclude("date").cast(pl.Float64))
-            df = df.with_columns(id=pl.col("date").rank().cast(pl.Int64))
-            df.write_parquet(f"{self.data_dir}/processed/consumer.parquet")
-            self.conn.insert(df, "consumertable")
+            self.conn.insert("consumertable", df)
             return self.conn.table("consumertable")
         else:
             return self.conn.table("consumertable")
@@ -175,26 +154,6 @@ class DataIndex(DataPull):
             cleaned = cleaned.replace(old, new)
         return cleaned
 
-    def jp_index_data(self, update:bool=False) -> ibis.expr.types.relations.Table:
-        """
-        Retrieves the economic indicators data from the database. If the data does not exist or
-        the update flag is set to True, it will process the economic indicators data and store it
-
-        Parameters
-        ----------
-        update : bool
-            Whether to update the data. Defaults to False.
-
-        Returns
-        -------
-        pl.DataFrame
-        """
-        if "indicatorstable" not in self.conn.list_tables() or self.conn.table("indicatorstable").count().execute() == 0 or update:
-            return self.process_jp_index(update) 
-        else:
-            return self.conn.table("indicatorstable")
-
-
     def process_jp_index(self, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Processes the economic indicators data and stores it in the database. 
@@ -212,17 +171,20 @@ class DataIndex(DataPull):
 
         if not os.path.exists(f"{self.data_dir}/raw/economic_indicators.xlsx") or update:
             self.pull_economic_indicators(f"{self.data_dir}/raw/economic_indicators.xlsx")
-        create_indicators_table(self.engine)
+        if "indicatorstable" not in self.conn.list_tables() or self.conn.table("indicatorstable").count().execute() == 0 or update:
+            create_indicators_table(self.engine)
 
-        jp_df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", 3)
+            jp_df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", 3)
 
-        for sheet in range(4, 20):
-            df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", sheet)
-            jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
+            for sheet in range(4, 20):
+                df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", sheet)
+                jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
 
-        jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
-        self.conn.insert(jp_df, "indicatorstable")
-        return self.conn.table("indicatorstable")
+            jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
+            self.conn.insert("indicatorstable", jp_df)
+            return self.conn.table("indicatorstable")
+        else:
+            return self.conn.table("indicatorstable")
 
     def process_sheet(self, file_path : str, sheet_id: int) -> pl.DataFrame:
         """
