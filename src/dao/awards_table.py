@@ -15,3 +15,6 @@ class AwardTable(SQLModel, table=True):
     funding_agency: Optional[str]
     funding_sub_agency: Optional[str]
     award_type: Optional[str]
+
+def create_awards_table(engine):
+    AwardTable.metadata.create_all(engine)
