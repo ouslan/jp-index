@@ -24,10 +24,3 @@ class IndicatorsTable(SQLModel, table=True):
 
 def create_indicators_table(engine):
     SQLModel.metadata.create_all(engine)
-
-def select_all_indicators(engine):
-    with Session(engine) as session:
-        statement = select(IndicatorsTable)
-        return session.exec(statement).all()
-
-
