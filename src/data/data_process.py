@@ -1,18 +1,12 @@
-from datetime import datetime
-import ibis
-import polars.selectors as cs
-import polars as pl
-import os
-
-import ibis
-import polars as pl
-import polars.selectors as cs
-from sqlalchemy.exc import OperationalError
-from sqlmodel import create_engine
-
-from ..dao.consumer_table import create_consumer_table
 from ..dao.economic_indicators_table import create_indicators_table
+from ..dao.consumer_table import create_consumer_table
+from sqlmodel import create_engine
 from .data_pull import DataPull
+from datetime import datetime
+import polars.selectors as cs
+import polars as pl
+import ibis
+import os
 
 class DataIndex(DataPull):
     """
