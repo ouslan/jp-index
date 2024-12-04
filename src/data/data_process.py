@@ -1,4 +1,7 @@
 from datetime import datetime
+import ibis
+import polars.selectors as cs
+import polars as pl
 import os
 
 import ibis
@@ -35,10 +38,23 @@ class DataIndex(DataPull):
         DataProcess
         """
         self.debug = debug
+        super().__init__(debug)
         self.database_url = database_url
         self.engine = create_engine(self.database_url)
         self.data_dir = data_dir
-        super().__init__(debug)
+
+        if self.database_url.startswith("sqlite"):
+            self.conn = ibis.sqlite.connect(self.database_url.replace("sqlite:///", ""))
+        elif self.database_url.startswith("postgres"):
+            self.conn = ibis.postgres.connect(
+                user=self.database_url.split("://")[1].split(":")[0],
+                password=self.database_url.split("://")[1].split(":")[1].split("@")[0],
+                host=self.database_url.split("://")[1].split(":")[1].split("@")[1],
+                port=self.database_url.split("://")[1].split(":")[2].split("/")[0],
+                database=self.database_url.split("://")[1].split(":")[2].split("/")[1])
+        else:
+            raise Exception("Database url is not supported")
+
         if not os.path.exists(f'{data_dir}/raw'):
             os.makedirs(f'{data_dir}/raw')
         if not os.path.exists(f'{data_dir}/processed'):
@@ -88,40 +104,44 @@ class DataIndex(DataPull):
         """
         if not os.path.exists(f"{self.data_dir}/raw/consumer.xls") or update:
             self.pull_consumer(f"{self.data_dir}/raw/consumer.xls")
-        create_consumer_table(self.engine)
-        df = pl.read_excel(f"{self.data_dir}/raw/consumer.xls", sheet_id=1)
-        names = df.head(1).to_dicts().pop()
-        names = {k: self.clean_name(v) for k, v in names.items()}
-        df = df.rename(names)
-        df = df.tail(-2).head(-1)
-        df = df.with_columns(pl.col('descripcion').str.to_lowercase())
-        df = df.with_columns((
-            pl.when(pl.col('descripcion').str.contains("ene")).then(pl.col('descripcion').str.replace("ene", "01").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("feb")).then(pl.col('descripcion').str.replace("feb", "02").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("mar")).then(pl.col('descripcion').str.replace("mar", "03").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("abr")).then(pl.col('descripcion').str.replace("abr", "04").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("may")).then(pl.col('descripcion').str.replace("may", "05").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("jun")).then(pl.col('descripcion').str.replace("jun", "06").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("jul")).then(pl.col('descripcion').str.replace("jul", "07").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("ago")).then(pl.col('descripcion').str.replace("ago", "08").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("sep")).then(pl.col('descripcion').str.replace("sep", "09").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("oct")).then(pl.col('descripcion').str.replace("oct", "10").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("nov")).then(pl.col('descripcion').str.replace("nov", "11").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .when(pl.col('descripcion').str.contains("dic")).then(pl.col('descripcion').str.replace("dic", "12").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
-                .otherwise(pl.col('descripcion').str.split_exact('-', 1).struct.rename_fields(['year', 'month']).alias('date'))
-            )).unnest("date")
-        df = df.with_columns(pl.col("year").str.strip_chars().str.slice(-2).cast(pl.Int32))
-        df = df.with_columns((
-            pl.when((pl.col("year") < 84)).then(pl.col("year") + 2000)
-            .when((pl.col("year") >= 84)).then(pl.col("year") + 1000)
-            .otherwise(pl.col("year")).alias("year")
-        ))
-        df = df.with_columns(date=pl.date(pl.col('year').cast(pl.String), pl.col('month'), 1)).sort(by="date")
-        df = df.with_columns(pl.col("date").cast(pl.String))
-        df = df.drop(['year', 'month', 'descripcion'])
-        df = df.with_columns(pl.all().exclude("date").cast(pl.Float64)).sort("date")
-        self.conn.insert("consumertable", df)
-        return self.conn.table("consumertable")
+        if not "consumertable" in self.conn.list_tables():
+            create_consumer_table(self.engine)
+            df = pl.read_excel(f"{self.data_dir}/raw/consumer.xls", sheet_id=1)
+            names = df.head(1).to_dicts().pop()
+            names = {k: self.clean_name(v) for k, v in names.items()}
+            df = df.rename(names)
+            df = df.tail(-2).head(-1)
+            df = df.with_columns(pl.col('descripcion').str.to_lowercase())
+            df = df.with_columns((
+                pl.when(pl.col('descripcion').str.contains("ene")).then(pl.col('descripcion').str.replace("ene", "01").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("feb")).then(pl.col('descripcion').str.replace("feb", "02").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("mar")).then(pl.col('descripcion').str.replace("mar", "03").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("abr")).then(pl.col('descripcion').str.replace("abr", "04").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("may")).then(pl.col('descripcion').str.replace("may", "05").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("jun")).then(pl.col('descripcion').str.replace("jun", "06").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("jul")).then(pl.col('descripcion').str.replace("jul", "07").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("ago")).then(pl.col('descripcion').str.replace("ago", "08").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("sep")).then(pl.col('descripcion').str.replace("sep", "09").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("oct")).then(pl.col('descripcion').str.replace("oct", "10").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("nov")).then(pl.col('descripcion').str.replace("nov", "11").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .when(pl.col('descripcion').str.contains("dic")).then(pl.col('descripcion').str.replace("dic", "12").str.split_exact('-', 1).struct.rename_fields(['month', 'year']).alias('date'))
+                  .otherwise(pl.col('descripcion').str.split_exact('-', 1).struct.rename_fields(['year', 'month']).alias('date'))
+              )).unnest("date")
+            df = df.with_columns((
+              pl.when((pl.col("year").str.len_chars() == 2) & (pl.col("year").str.strip_chars().cast(pl.Int32) < 80)).then(pl.col("year").str.strip_chars().cast(pl.Int32) + 2000)
+                .when((pl.col("year").str.len_chars() == 2) & (pl.col("year").str.strip_chars().cast(pl.Int32) >= 80)).then(pl.col("year").str.strip_chars().cast(pl.Int32) + 1900)
+                .otherwise(pl.col("year").str.strip_chars().cast(pl.Int32)).alias("year")
+            ))
+            df = df.with_columns(date=pl.date(pl.col('year').cast(pl.String), pl.col('month'), 1)).sort(by="date")
+            df = df.with_columns(pl.col("date").cast(pl.String))
+            df = df.drop(['year', 'month', 'descripcion'])
+            df = df.with_columns(pl.all().exclude("date").cast(pl.Float64))
+            df = df.with_columns(id=pl.col("date").rank().cast(pl.Int64))
+            df.write_parquet(f"{self.data_dir}/processed/consumer.parquet")
+            self.conn.insert(df, "consumertable")
+            return self.conn.table("consumertable")
+        else:
+            return self.conn.table("consumertable")
 
     def clean_name(self, name:str) -> str:
         """
@@ -174,6 +194,7 @@ class DataIndex(DataPull):
         else:
             return self.conn.table("indicatorstable")
 
+
     def process_jp_index(self, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Processes the economic indicators data and stores it in the database. 
@@ -199,8 +220,8 @@ class DataIndex(DataPull):
             df = self.process_sheet(f"{self.data_dir}/raw/economic_indicators.xlsx", sheet)
             jp_df = jp_df.join(df, on=['date'], how='left', validate="1:1")
 
-        jp_df = jp_df.sort(by="date")
-        self.conn.insert("indicatorstable", jp_df)
+        jp_df = jp_df.sort(by="date").with_columns(id=pl.col("date").rank().cast(pl.Int64))
+        self.conn.insert(jp_df, "indicatorstable")
         return self.conn.table("indicatorstable")
 
     def process_sheet(self, file_path : str, sheet_id: int) -> pl.DataFrame:
