@@ -59,7 +59,7 @@ class mortModel():
         return year_constants
     
 
-    def scaling_eigenvalue(self):
+    def singular_values(self):
         # Call the centralized matrix method and turn into numpy array to prepare for SVD
         matrix = self.centralized_matrix().to_numpy()
         # Perform SVD and declare the resulting values
