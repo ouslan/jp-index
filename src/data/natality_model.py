@@ -78,8 +78,10 @@ class natModel():
 
 
 class dataTransform():
-    def __init__(self, tfr):
+    def __init__(self, tfr, fem_pop):
         self.tfr = tfr
+        self.fem_pop = fem_pop
+        self.fem_columns = self.fem_pop.columns
         self.columns =  self.tfr.columns
         self.num_age_groups = len(tfr.columns)
         self.fit_data = self.box_cox_fit()
@@ -114,14 +116,18 @@ class dataTransform():
         tfr_transform = tfr_transform.set_index(self.fit_data.index)
         return tfr_transform, marginal_effects, rsquared
 
-    def error(self):
-        ...
+    def errors(self):
+        exp = (2 * 1) - 1
+        variance = (self.tfr.T.sum() ** exp) * (self.fem_pop.T.sum().astype("float") ** -1)
+        return variance
 
     
 
 def main():
     nat_data = pd.read_csv("tfr_data.csv").set_index("year")
-    transformed = dataTransform(nat_data)
+    female_pop = pd.read_csv("fem_pop.csv").set_index("year")
+    transformed = dataTransform(nat_data, female_pop)
+    print(transformed.lambda_fit())
 
     #tfr_transform, marginal_effects, rsquared = dataTransform(nat_data).kernel_transform()
     #nat_model = natModel(tfr_transform, 4)
