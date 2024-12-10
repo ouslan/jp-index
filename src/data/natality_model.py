@@ -34,29 +34,16 @@ class natModel():
             centered_matrix[i] = pd.concat([pd.Series(tfr_t[i] - self.averages[i])], axis=1)
         return centered_matrix
     
-    def age_effects(self):
-        age_effects = pd.DataFrame()
-        u, s, vt = svd(self.centered_data)
-        vt = pd.DataFrame(vt)
-        for i in range(0, self.n_components):
-            age_effects[i] = pd.concat([vt.iloc[i]])
-        return age_effects
-        
     def year_effects(self):
-        year_effects = pd.DataFrame()
-        u, s, vt = svd(self.centered_data)
-        u = pd.DataFrame(u)
-        for i in range(0, self.n_components):
-            year_effects[i] = pd.concat([u[i]])
+        pca = PCA(n_components=self.n_components)
+        year_effects = pd.DataFrame(pca.fit_transform(self.centered_data))
         return year_effects
         
-    def sing_vals(self):
-        singular_values = pd.Series()
-        u, s, vt = svd(self.centered_data)
-        s = pd.Series(s)
-        for i in range(0, self.n_components):
-            singular_values[i] = s[i]
-        return singular_values
+    def age_effects(self):
+        pca = PCA(n_components=self.n_components)
+        age_effects = pd.DataFrame(pca.fit_transform(self.centered_data.T))
+        return age_effects
+        
     
     def project(self, n_years, p=0, d=1, q=0, ext_effects = None):
         if ext_effects != None:
@@ -66,16 +53,34 @@ class natModel():
 
         # Arima
         y_effects_f = pd.DataFrame()
-        for i in y_effects:
+        for i in y_effects.columns:
             model = ARIMA(y_effects[i], order=(p,d,q))
-            model_fit = model.fit()
+            model_fit = model.fit(method_kwargs={'maxiter':2000})
             y_effects_f[i] = pd.concat([pd.Series(model_fit.forecast(n_years))])
         y_effects_f = pd.concat([y_effects, y_effects_f], axis=0)
         return y_effects_f
     
 
     def forecasted_tfr(self):
-        coefficients = ...
+        age_effects = self.age_effects()
+        year_effects = self.year_effects()
+        averages = self.averages
+        print(averages)
+
+        effects_1 = pd.DataFrame()
+        effects_2 = pd.DataFrame()
+        effects_3 = pd.DataFrame()
+        effects_4 = pd.DataFrame()
+
+        for i in age_effects.index:
+            effects_1[i] = pd.concat([year_effects[0] * age_effects[0].iloc[i]])
+            effects_2[i] = pd.concat([year_effects[1] * age_effects[1].iloc[i]])
+            effects_3[i] = pd.concat([year_effects[2] * age_effects[2].iloc[i]])
+            effects_4[i] = pd.concat([year_effects[3] * age_effects[3].iloc[i]])
+        forecast_fertility_rates = effects_1 + effects_2 + effects_3 + effects_4
+        for j in range(0, len(averages)):
+            forecast_fertility_rates[j] =  forecast_fertility_rates[j] + averages[j]
+        return forecast_fertility_rates
 
 
 class dataTransform():
@@ -137,9 +142,8 @@ class dataTransform():
 def main():
     nat_data = pd.read_csv("births.csv").set_index("year")
     female_pop = pd.read_csv("fem_pop.csv").set_index("year")
-    nat_model = dataTransform(female_pop, nat_data)
-    print(nat_model.errors())
-
+    data_transformed = dataTransform(female_pop, nat_data)
+    nat_model = natModel(data_transformed.tfr, 4, data_transformed.errors())
     #tfr_transform, marginal_effects, rsquared = dataTransform(nat_data).kernel_transform()
     #nat_model = natModel(tfr_transform, 4)
 
