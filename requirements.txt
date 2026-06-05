@@ -28,7 +28,7 @@ ptyprocess==0.7.0
     #   terminado
 pure-eval==0.2.3
     # via stack-data
-pyarrow==19.0.0
+pyarrow==23.0.1
     # via
     #   jp-index (pyproject.toml)
     #   fastexcel
